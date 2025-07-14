@@ -1,4 +1,4 @@
-FROM debian:buster-slim AS build
+FROM debian:bullseye-slim AS build
 
 WORKDIR /tmp
 ARG GCSPROXY_VERSION=0.4.2
