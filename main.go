@@ -192,8 +192,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	bucket := params["bucket"]
+	path := params["path"]
 
-	wc := client.Bucket(bucket).Object(handler.Filename).NewWriter(r.Context())
+	wc := client.Bucket(bucket).Object(fmt.Sprintf("%s/%s", path, handler.Filename)).NewWriter(r.Context())
 	defer wc.Close()
 
 	wc.ContentType = handler.Header.Get("Content-Type")
@@ -204,7 +205,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	io.WriteString(w, fmt.Sprintf("File %s uploaded successfully to %s\n", handler.Filename, bucket))
+	io.WriteString(w, fmt.Sprintf("File %s uploaded successfully to %s/%s\n", handler.Filename, bucket, path))
 }
 
 func healthCheck(w http.ResponseWriter, r *http.Request) {
@@ -227,8 +228,9 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/_health", wrapper(healthCheck)).Methods("GET", "HEAD")
-	r.HandleFunc("/upload/{bucket:[0-9a-zA-Z-_.]+}", wrapper(uploadHandler)).Methods("POST")
-	//todo: test this change
+	// path specifies an optional path inside the bucket where the file must be uploaded
+	// actual file name is retrieved from the form data in the POST request
+	r.HandleFunc("/upload/{bucket:[0-9a-zA-Z-_.]+}/{path:.*}", wrapper(uploadHandler)).Methods("POST")
 	r.HandleFunc("/download/{bucket:[0-9a-zA-Z-_.]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
 
 	log.Printf("[service] listening on %s", *bind)
