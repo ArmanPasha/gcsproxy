@@ -230,7 +230,7 @@ func main() {
 	r.HandleFunc("/upload/{bucket:[0-9a-zA-Z-_.]+}", wrapper(uploadHandler)).Methods("POST")
 	//todo: test this change
 	r.HandleFunc("/download/{bucket:[0-9a-zA-Z-_.]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
-	log.Printf("hello")
+
 	log.Printf("[service] listening on %s", *bind)
 	if err := http.ListenAndServe(*bind, r); err != nil {
 		log.Fatal(err)
