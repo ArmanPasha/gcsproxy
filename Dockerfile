@@ -6,6 +6,7 @@ RUN apt-get update \
     && apt-get install --no-install-suggests --no-install-recommends --yes ca-certificates wget
 
 COPY go.mod .
+COPY go.sum .
 COPY main.go .
 RUN go mod download && go build -o dist/gcsproxy
 
