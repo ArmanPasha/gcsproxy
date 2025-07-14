@@ -228,7 +228,8 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/_health", wrapper(healthCheck)).Methods("GET", "HEAD")
 	r.HandleFunc("/upload/{bucket:[0-9a-zA-Z-_.]+}", wrapper(uploadHandler)).Methods("POST")
-	r.HandleFunc("/{bucket:[0-9a-zA-Z-_.]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+	//todo: test this change
+	r.HandleFunc("/download/{bucket:[0-9a-zA-Z-_.]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
 
 	log.Printf("[service] listening on %s", *bind)
 	if err := http.ListenAndServe(*bind, r); err != nil {
