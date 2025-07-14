@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -16,6 +17,8 @@ import (
 	"github.com/gorilla/mux"
 	"google.golang.org/api/option"
 )
+
+const maxUploadSize = 100 << 20 // 100MB
 
 var (
 	bind         = flag.String("b", "127.0.0.1:8080", "Bind address")
@@ -159,6 +162,51 @@ func proxy(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, objr)
 }
 
+func uploadHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.ContentLength > maxUploadSize {
+		http.Error(w, fmt.Sprintf("File is larger than %d", maxUploadSize), http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	// enforce size limit
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid form: %s", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to read file from the form: %s", err.Error()), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// client may not send ContentLength header
+	if handler.Size > maxUploadSize {
+		http.Error(w, fmt.Sprintf("File is larger than %d", maxUploadSize), http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	params := mux.Vars(r)
+	bucket := params["bucket"]
+
+	wc := client.Bucket(bucket).Object(handler.Filename).NewWriter(r.Context())
+	defer wc.Close()
+
+	wc.ContentType = handler.Header.Get("Content-Type")
+
+	if _, err := io.Copy(wc, file); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	io.WriteString(w, fmt.Sprintf("File %s uploaded successfully to %s\n", handler.Filename, bucket))
+}
+
 func healthCheck(w http.ResponseWriter, r *http.Request) {
 	setStrHeader(w, "Content-Type", "text/plain")
 	io.WriteString(w, "OK\n")
@@ -180,6 +228,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/_health", wrapper(healthCheck)).Methods("GET", "HEAD")
 	r.HandleFunc("/{bucket:[0-9a-zA-Z-_.]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+	r.HandleFunc("/upload/{bucket:[0-9a-zA-Z-_.]+}", wrapper(uploadHandler)).Methods("POST")
 
 	log.Printf("[service] listening on %s", *bind)
 	if err := http.ListenAndServe(*bind, r); err != nil {
