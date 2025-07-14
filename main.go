@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -192,11 +193,8 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	bucket := params["bucket"]
-	path := params["path"]
-	uploadPath := handler.Filename
-	if len(path) > 0 {
-		uploadPath = fmt.Sprintf("%s/%s", path, uploadPath)
-	}
+	bucketPath := params["path"]
+	uploadPath := path.Join(bucketPath, handler.Filename)
 
 	wc := client.Bucket(bucket).Object(uploadPath).NewWriter(r.Context())
 	defer wc.Close()
