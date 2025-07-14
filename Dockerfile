@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim AS build
+FROM golang:1.23 AS builder
 
 WORKDIR /app
 
@@ -7,9 +7,9 @@ RUN apt-get update \
 
 COPY go.mod .
 COPY main.go .
-RUN go build -o dist/gcsproxy
+RUN go mod download && go build -o dist/gcsproxy
 
 FROM gcr.io/distroless/base
-COPY --from=build /app/gcsproxy /gcsproxy
+COPY --from=builder /app/dist/gcsproxy /gcsproxy
 ENTRYPOINT ["/gcsproxy"]
 CMD [ "-b", "0.0.0.0:80" ]
