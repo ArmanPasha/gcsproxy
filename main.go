@@ -19,13 +19,12 @@ import (
 	"google.golang.org/api/option"
 )
 
-const maxUploadSize = 100 << 20 // 100MB
-
 var (
-	bind         = flag.String("b", "127.0.0.1:8080", "Bind address")
-	verbose      = flag.Bool("v", false, "Show access log")
-	credentials  = flag.String("c", "", "The path to the keyfile. If not present, client will use your default application credentials.")
-	defaultIndex = flag.String("i", "", "The default index file to serve.")
+	bind          = flag.String("b", "127.0.0.1:8080", "Bind address")
+	verbose       = flag.Bool("v", false, "Show access log")
+	credentials   = flag.String("c", "", "The path to the keyfile. If not present, client will use your default application credentials.")
+	defaultIndex  = flag.String("i", "", "The default index file to serve.")
+	maxUploadSize = flag.Int64("m", 1<<30, "Maximum upload size in bytes (1GB default).")
 )
 
 var client *storage.Client
@@ -165,15 +164,15 @@ func proxy(w http.ResponseWriter, r *http.Request) {
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
-	if r.ContentLength > maxUploadSize {
+	if r.ContentLength > *maxUploadSize {
 		http.Error(w, fmt.Sprintf("File is larger than %d", maxUploadSize), http.StatusRequestEntityTooLarge)
 		return
 	}
 
 	// enforce size limit
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	r.Body = http.MaxBytesReader(w, r.Body, *maxUploadSize)
 
-	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+	if err := r.ParseMultipartForm(*maxUploadSize); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid form: %s", err.Error()), http.StatusBadRequest)
 		return
 	}
@@ -186,7 +185,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// client may not send ContentLength header
-	if handler.Size > maxUploadSize {
+	if handler.Size > *maxUploadSize {
 		http.Error(w, fmt.Sprintf("File is larger than %d", maxUploadSize), http.StatusRequestEntityTooLarge)
 		return
 	}
